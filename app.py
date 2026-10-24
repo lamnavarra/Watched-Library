@@ -170,27 +170,20 @@ def load_data():
     )
 
 
-def star_rating_picker():
+def star_rating_picker(key):
+    if f"{key}_rating" not in st.session_state:
+        st.session_state[f"{key}_rating"] = 5
+
     cols = st.columns(5)
 
     for i in range(1, 6):
         with cols[i - 1]:
-
-            if i <= st.session_state.add_rating:
-                star = "★"
-            else:
-                star = "☆"
-
-            if st.button(
-                star,
-                key=f"rating_{i}"
-            ):
-                st.session_state.add_rating = i
+            star = "★" if i <= st.session_state[f"{key}_rating"] else "☆"
+            if st.button(star, key=f"{key}_{i}"):
+                st.session_state[f"{key}_rating"] = i
                 st.rerun()
 
-    return st.session_state.add_rating
-
-
+    return st.session_state[f"{key}_rating"]
 def get_badges(df):
     badges = []
     count = len(df)
