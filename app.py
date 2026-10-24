@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -994,4 +993,3 @@ with stat4:
         "Best Genre",
         best_genre
     )
-```
