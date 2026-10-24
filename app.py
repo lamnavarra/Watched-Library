@@ -29,7 +29,7 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] * {
-    color: black !important;
+    color: white !important;
 }
 
 /* INPUT FIELDS */
