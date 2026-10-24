@@ -389,10 +389,43 @@ if df.empty:
 # =========================================================
 # FILTERS
 # =========================================================
-filter_col1, filter_col2, filter_col3 = st.columns(3)
+
+# Get year automatically from watched_date
+filter_dates = pd.to_datetime(
+    df["watched_date"],
+    errors="coerce"
+)
+
+year_options = (
+    filter_dates
+    .dt.year
+    .dropna()
+    .astype(int)
+    .unique()
+    .tolist()
+)
+
+year_options = ["All"] + sorted(
+    year_options,
+    reverse=True
+)
 
 
+# 4 FILTER COLUMNS
+filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+
+
+# YEAR
 with filter_col1:
+
+    year_filter = st.selectbox(
+        "**Year**",
+        year_options
+    )
+
+
+# CATEGORY
+with filter_col2:
 
     category_options = (
         df["category"]
@@ -407,7 +440,8 @@ with filter_col1:
     )
 
 
-with filter_col2:
+# GENRE
+with filter_col3:
 
     genre_options = (
         df["genre"]
@@ -422,7 +456,8 @@ with filter_col2:
     )
 
 
-with filter_col3:
+# SEARCH
+with filter_col4:
 
     search = st.text_input(
         "**Search Title**"
@@ -435,19 +470,43 @@ with filter_col3:
 filtered = df.copy()
 
 
+# Convert watched_date
+filtered["watched_date"] = pd.to_datetime(
+    filtered["watched_date"],
+    errors="coerce"
+)
+
+
+# YEAR FILTER
+if year_filter != "All":
+
+    filtered = filtered[
+        filtered["watched_date"].dt.year
+        == year_filter
+    ]
+
+
+# CATEGORY FILTER
 if category_filter != "All":
+
     filtered = filtered[
-        filtered["category"] == category_filter
+        filtered["category"]
+        == category_filter
     ]
 
 
+# GENRE FILTER
 if genre_filter != "All":
+
     filtered = filtered[
-        filtered["genre"] == genre_filter
+        filtered["genre"]
+        == genre_filter
     ]
 
 
+# SEARCH FILTER
 if search.strip():
+
     filtered = filtered[
         filtered["title"].str.contains(
             search.strip(),
