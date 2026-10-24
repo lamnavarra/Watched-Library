@@ -170,18 +170,45 @@ def load_data():
     )
 
 
-def star_rating_picker(key):
-    if f"{key}_rating" not in st.session_state:
-        st.session_state[f"{key}_rating"] = 5
+def star_rating_picker():
+    # Default rating
+    if "add_rating" not in st.session_state:
+        st.session_state.add_rating = 5
+
+    # Show selected rating
+    st.markdown(
+        f"""
+        <div style="
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 8px;
+        ">
+            Selected Rating: {st.session_state.add_rating}/5
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     cols = st.columns(5)
 
     for i in range(1, 6):
         with cols[i - 1]:
-            star = "★" if i <= st.session_state[f"{key}_rating"] else "☆"
-            if st.button(star, key=f"{key}_{i}"):
-                st.session_state[f"{key}_rating"] = i
+
+            # Filled star = selected
+            # Empty star = not selected
+            star = "★" if i <= st.session_state.add_rating else "☆"
+
+            if st.button(
+                star,
+                key=f"rating_{i}",
+                use_container_width=True
+            ):
+                st.session_state.add_rating = i
                 st.rerun()
+
+    return st.session_state.add_rating
 
     return st.session_state[f"{key}_rating"]
 def get_badges(df):
