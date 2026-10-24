@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from sqlalchemy import create_engine, text
 import urllib.parse
 
 
