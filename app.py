@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -94,6 +95,13 @@ div.stFormSubmitButton > button:hover {
     border-color: #686872;
 }
 
+/* Star buttons */
+[data-testid="stSidebar"] div.stButton > button {
+    color: white !important;
+    font-size: 20px !important;
+    text-align: center !important;
+}
+
 /* Metrics */
 [data-testid="stMetric"] {
     background-color: #55555D;
@@ -108,6 +116,24 @@ div.stFormSubmitButton > button:hover {
 
 </style>
 """, unsafe_allow_html=True)
+
+
+# =========================================================
+# GENRE COLORS
+# =========================================================
+genre_colors = {
+    "Action": "#C44545",
+    "Adventure": "#C8753D",
+    "Comedy": "#C99A2E",
+    "Drama": "#7656A8",
+    "Fantasy": "#5369B8",
+    "Horror": "#7D3038",
+    "Mystery": "#485A75",
+    "Romance": "#C45C82",
+    "Sci-Fi": "#367C8D",
+    "Thriller": "#59606F",
+    "Other": "#66666F"
+}
 
 
 # =========================================================
@@ -140,7 +166,6 @@ with engine.begin() as conn:
 
     column_names = [column[1] for column in columns]
 
-    # Older database may not have review
     if "review" not in column_names:
         conn.execute(
             text("ALTER TABLE media ADD COLUMN review TEXT")
@@ -171,11 +196,10 @@ def load_data():
 
 
 def star_rating_picker():
-    # Default rating
+
     if "add_rating" not in st.session_state:
         st.session_state.add_rating = 5
 
-    # Show selected rating
     st.markdown(
         f"""
         <div style="
@@ -194,11 +218,14 @@ def star_rating_picker():
     cols = st.columns(5)
 
     for i in range(1, 6):
+
         with cols[i - 1]:
 
-            # Filled star = selected
-            # Empty star = not selected
-            star = "★" if i <= st.session_state.add_rating else "☆"
+            star = (
+                "★"
+                if i <= st.session_state.add_rating
+                else "☆"
+            )
 
             if st.button(
                 star,
@@ -210,8 +237,9 @@ def star_rating_picker():
 
     return st.session_state.add_rating
 
-    return st.session_state[f"{key}_rating"]
+
 def get_badges(df):
+
     badges = []
     count = len(df)
 
@@ -247,6 +275,7 @@ with header_col:
 
 
 with badge_col:
+
     st.subheader("🏅 Your Badges")
 
     badges = get_badges(df)
@@ -302,7 +331,6 @@ with st.sidebar:
 
     rating = star_rating_picker()
 
-
     with st.form("add_form"):
 
         title = st.text_input(
@@ -349,7 +377,6 @@ with st.sidebar:
         submitted = st.form_submit_button(
             "Add"
         )
-
 
     if submitted:
 
@@ -431,7 +458,6 @@ year_options = ["All"] + sorted(
 )
 
 
-# 4 FILTER COLUMNS
 filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 
 
@@ -490,7 +516,6 @@ with filter_col4:
 filtered = df.copy()
 
 
-# Convert watched_date
 filtered["watched_date"] = pd.to_datetime(
     filtered["watched_date"],
     errors="coerce"
@@ -746,6 +771,7 @@ else:
         )
 
 
+        # Display 3 entries per row
         for i in range(
             0,
             len(rows),
@@ -762,6 +788,9 @@ else:
 
                 with col:
 
+                    # -----------------------------
+                    # TITLE BUTTON
+                    # -----------------------------
                     if st.button(
                         row["title"],
                         key=f"select_{row['id']}",
@@ -780,18 +809,52 @@ else:
                         st.rerun()
 
 
+                    # -----------------------------
+                    # CATEGORY
+                    # -----------------------------
                     st.write(
                         f"🎭 {row['category']}"
                     )
 
-                    st.write(
-                        f"🎬 {row['genre']}"
+
+                    # -----------------------------
+                    # COLORED GENRE BADGE
+                    # -----------------------------
+                    genre_color = genre_colors.get(
+                        row["genre"],
+                        "#66666F"
                     )
 
+                    st.markdown(
+                        f"""
+                        <div style="
+                            display: inline-block;
+                            background-color: {genre_color};
+                            color: white;
+                            padding: 5px 12px;
+                            border-radius: 8px;
+                            font-weight: 600;
+                            margin-top: 2px;
+                            margin-bottom: 8px;
+                        ">
+                            🎬 {row['genre']}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+
+                    # -----------------------------
+                    # RATING
+                    # -----------------------------
                     st.write(
                         f"★ {row['rating']}/5"
                     )
 
+
+                    # -----------------------------
+                    # DATE
+                    # -----------------------------
                     st.write(
                         "📅 "
                         + row["watched_date"].strftime(
@@ -800,7 +863,9 @@ else:
                     )
 
 
-                    # Show Edit/Delete when selected
+                    # -----------------------------
+                    # SHOW DETAILS WHEN SELECTED
+                    # -----------------------------
                     if (
                         st.session_state.selected_id
                         == row["id"]
@@ -815,6 +880,7 @@ else:
                             review_text
                             and not pd.isna(review_text)
                         ):
+
                             st.write(
                                 f"📝 {review_text}"
                             )
@@ -823,6 +889,7 @@ else:
                         edit_col, delete_col = st.columns(2)
 
 
+                        # EDIT
                         with edit_col:
 
                             if st.button(
@@ -835,6 +902,7 @@ else:
                                 st.rerun()
 
 
+                        # DELETE
                         with delete_col:
 
                             if st.button(
@@ -926,3 +994,4 @@ with stat4:
         "Best Genre",
         best_genre
     )
+```
