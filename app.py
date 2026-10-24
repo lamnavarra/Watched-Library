@@ -248,8 +248,6 @@ with st.sidebar:
 # -----------------------------
 # LOAD DATA
 # -----------------------------
-update_badges_from_entries(df)
-
 if df.empty:
     st.info("Add your first entry 🎬")
     st.stop()
