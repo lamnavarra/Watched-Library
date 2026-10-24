@@ -81,7 +81,7 @@ input {
 
 /* Selectbox text */
 div[data-baseweb="select"] {
-    color: #191D2D !important;
+    color: #FFFFFF !important;
 }
 </style>
 """, unsafe_allow_html=True)
