@@ -29,7 +29,7 @@ st.markdown("""
 }
 
 [data-testid="stSidebar"] * {
-    color: white !important;
+    color: black !important;
 }
 
 /* INPUT FIELDS */
@@ -52,7 +52,7 @@ div[data-baseweb="select"] {
 }
 
 div[role="listbox"] {
-    background: rgb(35, 40, 58);
+    background: white;
     color: white;
 }
 
