@@ -158,7 +158,7 @@ with engine.begin() as conn:
             genre TEXT,
             rating INTEGER,
             watched_date TEXT,
-            details TEXT
+            review TEXT
         )
     """))
 
