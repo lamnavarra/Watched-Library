@@ -142,26 +142,6 @@ if "badges" not in st.session_state:
 if "actions_count" not in st.session_state:
     st.session_state.actions_count = 0
 
-
-# -----------------------------
-# DATABASE
-# -----------------------------
-engine = create_engine("sqlite:///media.db")
-
-with engine.begin() as conn:
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS media (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            category TEXT,
-            genre TEXT,
-            rating INTEGER,
-            watched_date TEXT,
-            details TEXT
-        )
-    """))
-
-
 #-----------------------------
 # TITLE + BADGES
 #-----------------------------
