@@ -1,41 +1,55 @@
 import streamlit as st
 import pandas as pd
-import sqlalchemy
 from datetime import date
-import urllib.parse
 from sqlalchemy import create_engine, text
 
-# -----------------------------
+
+# =========================================================
 # CONFIG
-# -----------------------------
+# =========================================================
 st.set_page_config(
     page_title="𝐖𝐚𝐭𝐜𝐡𝐞𝐝 𝐋𝐢𝐛𝐫𝐚𝐫𝐲",
     page_icon="🎥",
     layout="wide"
 )
 
+
+# =========================================================
+# STYLE
+# =========================================================
 st.markdown("""
 <style>
 
-/* APP BACKGROUND */
+/* Main background */
 .stApp {
     background-color: rgb(25, 29, 45);
     color: white;
 }
 
-/* SIDEBAR */
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background: rgba(255, 255, 255, 0.08);
+    background: #55555D !important;
 }
 
-[data-testid="stSidebar"] * {
-    color: black !important;
+/* Sidebar text */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label {
+    color: white !important;
 }
 
-/* INPUT FIELDS */
-input, textarea {
+/* Labels */
+[data-testid="stWidgetLabel"] p {
+    color: white !important;
+}
+
+/* Text inputs */
+input,
+textarea {
     background: rgb(245, 245, 248) !important;
-    color: rgb(25, 29, 45) !important;
+    color: #191D2D !important;
     border: none !important;
     border-radius: 10px !important;
 }
@@ -45,115 +59,68 @@ textarea::placeholder {
     color: rgba(25, 29, 45, 0.5) !important;
 }
 
-/* SELECT BOXES */
+/* Select boxes */
 div[data-baseweb="select"] {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    background: white !important;
+    border-radius: 10px !important;
 }
 
-div[role="listbox"] {
-    background: white;
-    color: white;
-}
-
-/* BUTTONS */
-div.stButton > button {
-    background:  #55555D;
-    color: white;
-    border: 1px solid #55555D;
-    border-radius: 8px;
-}
-
-div.stButton > button:hover {
-    background:  #62626B;
-}
-
-            
-/* Labels above fields */
-[data-testid="stWidgetLabel"] p {
-    color: white !important;
-}
-
-/* Text input */
-input {
+div[data-baseweb="select"] * {
     color: #191D2D !important;
 }
 
-/* Selectbox text */
-div[data-baseweb="select"] {
-    color: #FFFFFF !important;
+/* Dropdown menu */
+div[role="listbox"] {
+    background: white !important;
 }
+
+div[role="option"] {
+    color: #191D2D !important;
+}
+
+/* Buttons */
+div.stButton > button,
+div.stFormSubmitButton > button {
+    background: #55555D;
+    color: white;
+    border: 1px solid #686872;
+    border-radius: 8px;
+}
+
+div.stButton > button:hover,
+div.stFormSubmitButton > button:hover {
+    background: #686872;
+    color: white;
+    border-color: #686872;
+}
+
+/* Metrics */
+[data-testid="stMetric"] {
+    background-color: #55555D;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+[data-testid="stMetricLabel"],
+[data-testid="stMetricValue"] {
+    color: white;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-   
-# -----------------------------
-# ACTION + BADGE SYSTEM
-# -----------------------------
-def update_badges_from_entries(df):
-    count = len(df)
 
-    st.session_state.badges = []
-
-    if count >= 1:
-        st.session_state.badges.append("🎬 First Entry")
-
-    if count >= 10:
-        st.session_state.badges.append("🍿 Movie Lover")
-
-    if count >= 25:
-        st.session_state.badges.append("🏆 Collector")
-
-    if count >= 50:
-        st.session_state.badges.append("🔥 Power User")
-
-        st.rerun()
-
-
-# -----------------------------
-# STAR RATING
-# -----------------------------
-def star_rating_picker(key):
-    if f"{key}_rating" not in st.session_state:
-        st.session_state[f"{key}_rating"] = 5
-
-    cols = st.columns(5)
-
-    for i in range(1, 6):
-        with cols[i - 1]:
-            star = "★" if i <= st.session_state[f"{key}_rating"] else "☆"
-            if st.button(star, key=f"{key}_{i}"):
-                st.session_state[f"{key}_rating"] = i
-                st.rerun()
-
-    return st.session_state[f"{key}_rating"]
-
-# -----------------------------
-#SESSION STATE INIT
-# -----------------------------
-if "selected_id" not in st.session_state:
-    st.session_state.selected_id = None
-
-if "editing_id" not in st.session_state:
-    st.session_state.editing_id = None
-
-if "badges" not in st.session_state:
-    st.session_state.badges = []
-
-if "actions_count" not in st.session_state:
-    st.session_state.actions_count = 0
-
-
-# -----------------------------
+# =========================================================
 # DATABASE
-# -----------------------------
+# =========================================================
 engine = create_engine("sqlite:///media.db")
+
 
 with engine.begin() as conn:
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS media (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
+            title TEXT NOT NULL,
             category TEXT,
             genre TEXT,
             rating INTEGER,
@@ -163,476 +130,720 @@ with engine.begin() as conn:
     """))
 
 
-#-----------------------------
-# TITLE + BADGES
-#-----------------------------
+# ---------------------------------------------------------
+# Fix old database automatically
+# ---------------------------------------------------------
+with engine.begin() as conn:
+    columns = conn.execute(
+        text("PRAGMA table_info(media)")
+    ).fetchall()
 
-col1, col2 = st.columns(2)
+    column_names = [column[1] for column in columns]
 
-with col1:
+    # Older database may not have review
+    if "review" not in column_names:
+        conn.execute(
+            text("ALTER TABLE media ADD COLUMN review TEXT")
+        )
+
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+if "selected_id" not in st.session_state:
+    st.session_state.selected_id = None
+
+if "editing_id" not in st.session_state:
+    st.session_state.editing_id = None
+
+if "add_rating" not in st.session_state:
+    st.session_state.add_rating = 5
+
+
+# =========================================================
+# FUNCTIONS
+# =========================================================
+def load_data():
+    return pd.read_sql(
+        "SELECT * FROM media",
+        engine
+    )
+
+
+def star_rating_picker():
+    cols = st.columns(5)
+
+    for i in range(1, 6):
+        with cols[i - 1]:
+
+            if i <= st.session_state.add_rating:
+                star = "★"
+            else:
+                star = "☆"
+
+            if st.button(
+                star,
+                key=f"rating_{i}"
+            ):
+                st.session_state.add_rating = i
+                st.rerun()
+
+    return st.session_state.add_rating
+
+
+def get_badges(df):
+    badges = []
+    count = len(df)
+
+    if count >= 1:
+        badges.append("🎬 First Entry")
+
+    if count >= 10:
+        badges.append("🍿 Movie Lover")
+
+    if count >= 25:
+        badges.append("🏆 Collector")
+
+    if count >= 50:
+        badges.append("🔥 Power User")
+
+    return badges
+
+
+# =========================================================
+# LOAD DATA
+# =========================================================
+df = load_data()
+
+
+# =========================================================
+# HEADER + BADGES
+# =========================================================
+header_col, badge_col = st.columns(2)
+
+
+with header_col:
     st.title("Watched Library 🎥🎟️🍿")
 
-with col2:
+
+with badge_col:
     st.subheader("🏅 Your Badges")
 
-    if st.session_state.badges:
-        badge_html = "".join([
+    badges = get_badges(df)
+
+    if badges:
+
+        badge_html = "".join(
             f"""
             <span style="
-             background: #55555D;
-             color: white;
+                background: #55555D;
+                color: white;
                 padding: 6px 10px;
-               border-radius: 20px;
-              margin: 4px;
-               display: inline-block;
-               font-size: 13px;
-         ">
-               {badge}
-         </span>
-          """
-           for badge in st.session_state.badges
-     ])
+                border-radius: 20px;
+                margin: 4px;
+                display: inline-block;
+                font-size: 13px;
+            ">
+                {badge}
+            </span>
+            """
+            for badge in badges
+        )
 
-        st.markdown(badge_html, unsafe_allow_html=True)
+        st.markdown(
+            badge_html,
+            unsafe_allow_html=True
+        )
+
     else:
-     st.markdown("""
+
+        st.markdown("""
         <span style="
             background: #55555D;
             color: white;
             padding: 6px 10px;
             border-radius: 20px;
-            margin: 4px;
             display: inline-block;
             font-size: 13px;
         ">
-            No badges yet — start interacting!
+            No badges yet — start adding entries!
         </span>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 
-# -----------------------------
-# ADD ENTRY
-# -----------------------------
+# =========================================================
+# SIDEBAR - ADD ENTRY
+# =========================================================
 with st.sidebar:
-    st.markdown("""
-    <style>
-    [data-testid="stSidebar"] {
-    background:  #55555D;  /* 50% opacity */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    st.header("**➕ Add Entry**")
+
+    st.header("➕ Add Entry")
 
     st.write("**Rating**")
-    rating = star_rating_picker("add")
+
+    rating = star_rating_picker()
+
 
     with st.form("add_form"):
-        title = st.text_input("**Title**")
+
+        title = st.text_input(
+            "**Title**"
+        )
 
         category = st.selectbox(
             "**Category**",
-            ["Movie", "Anime", "Manga", "Show", "Series"]
+            [
+                "Movie",
+                "Anime",
+                "Manga",
+                "Show",
+                "Series"
+            ]
         )
 
         genre = st.selectbox(
             "**Genre**",
-            ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi", "Thriller", "Other"]
+            [
+                "Action",
+                "Adventure",
+                "Comedy",
+                "Drama",
+                "Fantasy",
+                "Horror",
+                "Mystery",
+                "Romance",
+                "Sci-Fi",
+                "Thriller",
+                "Other"
+            ]
         )
 
-        watched_date = st.date_input("**Watched Date**", value=date.today())
-        review = st.text_area("**Review**")
+        watched_date = st.date_input(
+            "**Watched Date**",
+            value=date.today()
+        )
 
-        submit = st.form_submit_button("Add")
+        review = st.text_area(
+            "**Review**"
+        )
 
-        if submit and title.strip():
+        submitted = st.form_submit_button(
+            "Add"
+        )
+
+
+    if submitted:
+
+        if not title.strip():
+
+            st.warning(
+                "Please enter a title."
+            )
+
+        else:
 
             with engine.begin() as conn:
-                conn.execute(text("""
-                    INSERT INTO media (title, category, genre, rating, watched_date, review)
-                    VALUES (:title, :category, :genre, :rating, :watched_date, :review)
-                """), {
-                    "title": title,
-                    "category": category,
-                    "genre": genre,
-                    "rating": int(rating),
-                    "watched_date": str(watched_date),
-                    "review": review
-                })
 
-            st.success("Added!")
+                conn.execute(
+                    text("""
+                        INSERT INTO media (
+                            title,
+                            category,
+                            genre,
+                            rating,
+                            watched_date,
+                            review
+                        )
+                        VALUES (
+                            :title,
+                            :category,
+                            :genre,
+                            :rating,
+                            :watched_date,
+                            :review
+                        )
+                    """),
+                    {
+                        "title": title.strip(),
+                        "category": category,
+                        "genre": genre,
+                        "rating": int(rating),
+                        "watched_date": str(watched_date),
+                        "review": review.strip()
+                    }
+                )
 
-            df = pd.read_sql("SELECT * FROM media", engine)
-            update_badges_from_entries(df)
+            st.session_state.add_rating = 5
 
-# -----------------------------
-# LOAD DATA
-# -----------------------------
-df = pd.read_sql("SELECT * FROM media", engine)
-update_badges_from_entries(df)
+            st.rerun()
 
+
+# =========================================================
+# EMPTY LIBRARY
+# =========================================================
 if df.empty:
+
     st.info("Add your first entry 🎬")
     st.stop()
 
-if "year_filter" not in st.session_state:
-    st.session_state.year_filter = "All"
-# -----------------------------
+
+# =========================================================
 # FILTERS
-# -----------------------------
+# =========================================================
+filter_col1, filter_col2, filter_col3 = st.columns(3)
 
-st.markdown("""
-<style>
-div.stButton > button {
-    color: white;
-    background-color: #55555D;
-    padding: 1px 6px;
-    font-size: 11px;
-    border-radius: 6px;
-    min-height: 28px;
-}
-</style>
-""", unsafe_allow_html=True)
 
-col1, col2, col3,col4= st.columns(4)
+with filter_col1:
 
-with col1:
-    # Remove missing years and convert years to integers
-    year_options = (
-        df["year"]
+    category_options = (
+        df["category"]
         .dropna()
-        .astype(int)
         .unique()
         .tolist()
     )
 
-    year_options = ["All"] + sorted(
-        year_options,
-        reverse=True
-    )
-
-    year_filter = st.selectbox(
-        "**Year**",
-        year_options
-    )
-with col2:
     category_filter = st.selectbox(
         "**Category**",
-        ["All"] + sorted(df["category"].unique())
+        ["All"] + sorted(category_options)
     )
 
-with col3:
+
+with filter_col2:
+
+    genre_options = (
+        df["genre"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
     genre_filter = st.selectbox(
         "**Genre**",
-        ["All"] + sorted(df["genre"].unique())
+        ["All"] + sorted(genre_options)
     )
 
-with col4:
-    search = st.text_input("**Search Title**")
 
-# -----------------------------
+with filter_col3:
+
+    search = st.text_input(
+        "**Search Title**"
+    )
+
+
+# =========================================================
 # APPLY FILTERS
-# -----------------------------
+# =========================================================
 filtered = df.copy()
 
-if year_filter != "All":
-    filtered = filtered[filtered["year"] == year_filter]
 
 if category_filter != "All":
-    filtered = filtered[filtered["category"] == category_filter]
-
-if search:
     filtered = filtered[
-        filtered["title"].str.contains(search, case=False, na=False)
+        filtered["category"] == category_filter
     ]
 
-# -----------------------------
-# DISPLAY + EDIT + DELETE
-# -----------------------------
-st.header("Your Library")
 
-st.markdown("""
-<style>
+if genre_filter != "All":
+    filtered = filtered[
+        filtered["genre"] == genre_filter
+    ]
 
-/* LIBRARY CARD */
-.card {
-    background-color: #55555D;
-    color: white;
-    padding: 16px;
-    border-radius: 14px;
-    margin-bottom: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.20);
-    transition: 0.2s;
-}
 
-/* CARD HOVER */
-.card:hover {
-    transform: scale(1.01);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.30);
-}
+if search.strip():
+    filtered = filtered[
+        filtered["title"].str.contains(
+            search.strip(),
+            case=False,
+            na=False
+        )
+    ]
 
-/* BUTTONS */
-div.stButton > button {
-    width: 100%;
-    background-color: #55555D;
-    color: white;
-    text-align: left;
-    border: 1px solid #686872;
-    border-radius: 10px;
-    padding: 0.5rem;
-    transition: 0.2s;
-}
 
-/* BUTTON HOVER */
-div.stButton > button:hover {
-    background-color: #686872;
-    color: white;
-    border-color: #686872;
-}
+# =========================================================
+# EDIT ENTRY
+# =========================================================
+editing_id = st.session_state.editing_id
 
-/* SELECTED BUTTON */
-.selected-btn button {
-    background-color: #73737D !important;
-    color: white !important;
-    font-weight: 600;
-    border: 2px solid #8A8A94 !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
-editing_id = st.session_state.get("editing_id")
 
 if editing_id is not None:
 
-    movie = df[df["id"] == editing_id].iloc[0]
-
-    st.subheader("Edit Entry")
-
-    new_title = st.text_input(
-        "Title",
-        value=movie["title"]
-    )
-
-    new_rating = st.number_input(
-        "Rating",
-        min_value=1,
-        max_value=5,
-        value=int(movie["rating"])
-    )
-
-    categories = [
-        "Movie",
-        "Anime",
-        "Manga",
-        "Show",
-        "Series"
+    selected = df[
+        df["id"] == editing_id
     ]
 
-    new_category = st.selectbox(
-        "Category",
-        categories,
-        index=categories.index(movie["category"])
-    )
+    if not selected.empty:
 
-    genres = [
-        "Action",
-        "Adventure",
-        "Comedy",
-        "Drama",
-        "Fantasy",
-        "Horror",
-        "Mystery",
-        "Romance",
-        "Sci-Fi",
-        "Thriller",
-        "Other"
-    ]
+        entry = selected.iloc[0]
 
-    new_genre = st.selectbox(
-        "Genre",
-        genres,
-        index=genres.index(movie["genre"])
-    )
-
-    new_review = st.text_area(
-        "Review",
-        value=movie["review"]
-    )
-
-    col1, col2 = st.columns(2)
-
-    # SAVE
-    with col1:
-        if st.button("💾 Save Changes"):
-
-            with engine.begin() as conn:
-                conn.execute(
-                    text("""
-                        UPDATE media
-                        SET title = :title,
-                            rating = :rating,
-                            category = :category,
-                            genre = :genre,
-                            review = :review
-                        WHERE id = :id
-                    """),
-                    {
-                        "title": new_title,
-                        "rating": int(new_rating),
-                        "category": new_category,
-                        "genre": new_genre,
-                        "review": new_review,
-                        "id": editing_id
-                    }
-                )
-
-            st.session_state.editing_id = None
-            st.session_state.selected_id = None
-
-            st.rerun()
-
-    # CANCEL
-    with col2:
-        if st.button("❌ Cancel"):
-            st.session_state.editing_id = None
-            st.rerun()
+        st.subheader("✏️ Edit Entry")
 
 
-# Convert filtered dataframe to records
-rows = filtered.to_dict("records")
-    # Make sure watched_date is treated as a date
+        new_title = st.text_input(
+            "Title",
+            value=str(entry["title"]),
+            key="edit_title"
+        )
+
+
+        new_rating = st.number_input(
+            "Rating",
+            min_value=1,
+            max_value=5,
+            value=int(entry["rating"]),
+            key="edit_rating"
+        )
+
+
+        categories = [
+            "Movie",
+            "Anime",
+            "Manga",
+            "Show",
+            "Series"
+        ]
+
+        current_category = entry["category"]
+
+        if current_category not in categories:
+            current_category = "Movie"
+
+
+        new_category = st.selectbox(
+            "Category",
+            categories,
+            index=categories.index(
+                current_category
+            ),
+            key="edit_category"
+        )
+
+
+        genres = [
+            "Action",
+            "Adventure",
+            "Comedy",
+            "Drama",
+            "Fantasy",
+            "Horror",
+            "Mystery",
+            "Romance",
+            "Sci-Fi",
+            "Thriller",
+            "Other"
+        ]
+
+        current_genre = entry["genre"]
+
+        if current_genre not in genres:
+            current_genre = "Other"
+
+
+        new_genre = st.selectbox(
+            "Genre",
+            genres,
+            index=genres.index(
+                current_genre
+            ),
+            key="edit_genre"
+        )
+
+
+        current_review = entry["review"]
+
+        if pd.isna(current_review):
+            current_review = ""
+
+
+        new_review = st.text_area(
+            "Review",
+            value=str(current_review),
+            key="edit_review"
+        )
+
+
+        save_col, cancel_col = st.columns(2)
+
+
+        with save_col:
+
+            if st.button(
+                "💾 Save Changes",
+                use_container_width=True
+            ):
+
+                if not new_title.strip():
+
+                    st.warning(
+                        "Title cannot be empty."
+                    )
+
+                else:
+
+                    with engine.begin() as conn:
+
+                        conn.execute(
+                            text("""
+                                UPDATE media
+                                SET
+                                    title = :title,
+                                    rating = :rating,
+                                    category = :category,
+                                    genre = :genre,
+                                    review = :review
+                                WHERE id = :id
+                            """),
+                            {
+                                "title": new_title.strip(),
+                                "rating": int(new_rating),
+                                "category": new_category,
+                                "genre": new_genre,
+                                "review": new_review.strip(),
+                                "id": editing_id
+                            }
+                        )
+
+                    st.session_state.editing_id = None
+                    st.session_state.selected_id = None
+
+                    st.rerun()
+
+
+        with cancel_col:
+
+            if st.button(
+                "❌ Cancel",
+                use_container_width=True
+            ):
+
+                st.session_state.editing_id = None
+                st.rerun()
+
+
+# =========================================================
+# LIBRARY
+# =========================================================
+st.header("Your Library")
+
+
 filtered = filtered.copy()
+
 filtered["watched_date"] = pd.to_datetime(
     filtered["watched_date"],
     errors="coerce"
 )
 
-# Remove entries without a valid watched date
-library_df = filtered.dropna(subset=["watched_date"]).copy()
 
-# Sort newest first
+library_df = filtered.dropna(
+    subset=["watched_date"]
+).copy()
+
+
 library_df = library_df.sort_values(
     "watched_date",
     ascending=False
 )
 
-# Create month heading
-library_df["month"] = library_df["watched_date"].dt.strftime(
-    "%B %Y"
-)
 
-# Group library by month
-for month, month_df in library_df.groupby(
-    "month",
-    sort=False
-):
+if library_df.empty:
 
-    st.subheader(month)
+    st.info("No entries found.")
 
-    rows = month_df.to_dict("records")
 
-    # Display 3 entries per row
-    for i in range(0, len(rows), 3):
+else:
 
-        cols = st.columns(3)
+    library_df["month"] = (
+        library_df["watched_date"]
+        .dt.strftime("%B %Y")
+    )
 
-        for col, row in zip(cols, rows[i:i+3]):
 
-            with col:
+    for month, month_df in library_df.groupby(
+        "month",
+        sort=False
+    ):
 
-                if st.button(
-                    row["title"],
-                    key=f"select_{row['id']}",
-                    use_container_width=True
-                ):
-                    st.session_state.selected_id = row["id"]
+        st.subheader(month)
 
-                st.write(f"🎭 {row['category']}")
-                st.write(f"🎬 {row['genre']}")
-                st.write(f"★ {row['rating']}/5")
-                st.write(
-                    f"📅 {row['watched_date'].strftime('%d %B %Y')}"
-                )
+        rows = month_df.to_dict(
+            "records"
+        )
 
-                # Edit / Delete
-                if st.session_state.selected_id == row["id"]:
 
-                    c1, c2 = st.columns(2)
+        for i in range(
+            0,
+            len(rows),
+            3
+        ):
 
-                    with c1:
-                        if st.button(
-                            "✏️ Edit",
-                            key=f"edit_{row['id']}"
+            cols = st.columns(3)
+
+
+            for col, row in zip(
+                cols,
+                rows[i:i + 3]
+            ):
+
+                with col:
+
+                    if st.button(
+                        row["title"],
+                        key=f"select_{row['id']}",
+                        use_container_width=True
+                    ):
+
+                        if (
+                            st.session_state.selected_id
+                            == row["id"]
                         ):
-                            st.session_state.editing_id = row["id"]
-                            st.rerun()
+                            st.session_state.selected_id = None
 
-                    with c2:
-                        if st.button(
-                            "🗑️ Delete",
-                            key=f"del_{row['id']}"
+                        else:
+                            st.session_state.selected_id = row["id"]
+
+                        st.rerun()
+
+
+                    st.write(
+                        f"🎭 {row['category']}"
+                    )
+
+                    st.write(
+                        f"🎬 {row['genre']}"
+                    )
+
+                    st.write(
+                        f"★ {row['rating']}/5"
+                    )
+
+                    st.write(
+                        "📅 "
+                        + row["watched_date"].strftime(
+                            "%d %B %Y"
+                        )
+                    )
+
+
+                    # Show Edit/Delete when selected
+                    if (
+                        st.session_state.selected_id
+                        == row["id"]
+                    ):
+
+                        review_text = row.get(
+                            "review",
+                            ""
+                        )
+
+                        if (
+                            review_text
+                            and not pd.isna(review_text)
                         ):
-                            with engine.begin() as conn:
-                                conn.execute(
-                                    text("""
-                                        DELETE FROM media
-                                        WHERE id = :id
-                                    """),
-                                    {"id": row["id"]}
-                                )
-
-                            st.rerun()
+                            st.write(
+                                f"📝 {review_text}"
+                            )
 
 
-# -----------------------------
+                        edit_col, delete_col = st.columns(2)
+
+
+                        with edit_col:
+
+                            if st.button(
+                                "✏️ Edit",
+                                key=f"edit_{row['id']}",
+                                use_container_width=True
+                            ):
+
+                                st.session_state.editing_id = row["id"]
+                                st.rerun()
+
+
+                        with delete_col:
+
+                            if st.button(
+                                "🗑️ Delete",
+                                key=f"delete_{row['id']}",
+                                use_container_width=True
+                            ):
+
+                                with engine.begin() as conn:
+
+                                    conn.execute(
+                                        text("""
+                                            DELETE FROM media
+                                            WHERE id = :id
+                                        """),
+                                        {
+                                            "id": row["id"]
+                                        }
+                                    )
+
+                                st.session_state.selected_id = None
+                                st.session_state.editing_id = None
+
+                                st.rerun()
+
+
+# =========================================================
 # STATS
-# -----------------------------
+# =========================================================
 st.subheader("📊 Stats")
 
-# Style the metric boxes
-st.markdown("""
-<style>
-[data-testid="stMetric"] {
-    background-color: #55555D;
-    padding: 15px;
-    border-radius: 12px;
-}
 
-[data-testid="stMetricLabel"] {
-    color: white;
-}
-
-[data-testid="stMetricValue"] {
-    color: white;
-}
-</style>
-""", unsafe_allow_html=True)
+stat1, stat2, stat3, stat4 = st.columns(4)
 
 
-# Stats columns
-c1, c2, c3, c4 = st.columns(4)
+with stat1:
 
-with c1:
     st.metric(
         "Total",
         len(df)
     )
 
-with c2:
+
+with stat2:
+
+    average_rating = pd.to_numeric(
+        df["rating"],
+        errors="coerce"
+    ).mean()
+
     st.metric(
         "Average Rating",
-        round(df["rating"].mean(), 1)
+        round(average_rating, 1)
+        if not pd.isna(average_rating)
+        else 0
     )
 
-with c3:
+
+with stat3:
+
+    best_rating = pd.to_numeric(
+        df["rating"],
+        errors="coerce"
+    ).max()
+
     st.metric(
         "Best Rating",
-        df["rating"].max()
+        int(best_rating)
+        if not pd.isna(best_rating)
+        else 0
     )
 
-with c4:
+
+with stat4:
+
+    genre_mode = (
+        df["genre"]
+        .dropna()
+        .mode()
+    )
+
+    best_genre = (
+        genre_mode.iloc[0]
+        if not genre_mode.empty
+        else "N/A"
+    )
+
     st.metric(
         "Best Genre",
-        df["genre"].mode()[0]
+        best_genre
     )
