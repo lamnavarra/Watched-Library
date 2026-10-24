@@ -248,6 +248,8 @@ with st.sidebar:
 # -----------------------------
 # LOAD DATA
 # -----------------------------
+df = pd.read_sql(engine)
+update_badges_from_entries(df)
 
 if df.empty:
     st.info("Add your first entry 🎬")
