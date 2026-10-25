@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -15,20 +16,63 @@ st.set_page_config(
 
 
 # =========================================================
+# AUTHENTICATION
+# =========================================================
+# Authentication is configured in .streamlit/secrets.toml
+# locally and in Streamlit Community Cloud Secrets.
+#
+# We use the OIDC "sub" claim as the permanent user ID.
+# Do NOT use the user's display name as the database owner.
+
+if not st.user.is_logged_in:
+
+    st.title("🎥 Watched Library")
+
+    st.write(
+        "Sign in to access your personal watched library."
+    )
+
+    if st.button(
+        "Continue with Google",
+        use_container_width=False
+    ):
+        st.login("google")
+
+    st.stop()
+
+
+# Unique ID supplied by the identity provider
+user_id = str(st.user.sub)
+
+# Display information only
+user_name = getattr(
+    st.user,
+    "name",
+    "User"
+)
+
+user_email = getattr(
+    st.user,
+    "email",
+    ""
+)
+
+
+# =========================================================
 # GENRE COLORS
 # =========================================================
 genre_colors = {
-    "Action": "#C44545",       # Red
-    "Adventure": "#C8753D",    # Orange
-    "Comedy": "#C99A2E",       # Gold
-    "Drama": "#7656A8",        # Purple
-    "Fantasy": "#5369B8",      # Blue
-    "Horror": "#7D3038",       # Dark Red
-    "Mystery": "#485A75",      # Blue Gray
-    "Romance": "#C45C82",      # Pink
-    "Sci-Fi": "#367C8D",       # Teal
-    "Thriller": "#59606F",     # Gray Blue
-    "Other": "#66666F"         # Gray
+    "Action": "#C44545",
+    "Adventure": "#C8753D",
+    "Comedy": "#C99A2E",
+    "Drama": "#7656A8",
+    "Fantasy": "#5369B8",
+    "Horror": "#7D3038",
+    "Mystery": "#485A75",
+    "Romance": "#C45C82",
+    "Sci-Fi": "#367C8D",
+    "Thriller": "#59606F",
+    "Other": "#66666F"
 }
 
 
@@ -196,10 +240,27 @@ div.stFormSubmitButton > button:hover {
 # =========================================================
 # DATABASE
 # =========================================================
+# DATABASE_URL must be stored in Streamlit Secrets.
+#
+# Example:
+#
+# DATABASE_URL = "postgresql+psycopg2://..."
+#
+# Never put the real database password directly in this file.
+
 engine = create_engine(
-    "sqlite:///media.db"
+    st.secrets["DATABASE_URL"],
+    pool_pre_ping=True
 )
 
+
+# =========================================================
+# CREATE DATABASE TABLE
+# =========================================================
+# PostgreSQL version of your original media table.
+#
+# Every entry now has a user_id.
+# This is what separates each user's library.
 
 with engine.begin() as conn:
 
@@ -207,7 +268,9 @@ with engine.begin() as conn:
         text("""
             CREATE TABLE IF NOT EXISTS media (
 
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id BIGSERIAL PRIMARY KEY,
+
+                user_id TEXT NOT NULL,
 
                 title TEXT NOT NULL,
 
@@ -217,39 +280,24 @@ with engine.begin() as conn:
 
                 rating INTEGER,
 
-                watched_date TEXT,
+                watched_date DATE,
 
-                review TEXT
+                review TEXT,
+
+                created_at TIMESTAMPTZ
+                    DEFAULT CURRENT_TIMESTAMP
             )
         """)
     )
 
-
-# =========================================================
-# FIX OLD DATABASE
-# =========================================================
-with engine.begin() as conn:
-
-    columns = conn.execute(
-        text(
-            "PRAGMA table_info(media)"
-        )
-    ).fetchall()
-
-
-    column_names = [
-        column[1]
-        for column in columns
-    ]
-
-
-    if "review" not in column_names:
-
-        conn.execute(
-            text(
-                "ALTER TABLE media ADD COLUMN review TEXT"
-            )
-        )
+    # Makes loading a user's library faster.
+    conn.execute(
+        text("""
+            CREATE INDEX IF NOT EXISTS
+            idx_media_user_id
+            ON media(user_id)
+        """)
+    )
 
 
 # =========================================================
@@ -272,20 +320,192 @@ if "add_rating" not in st.session_state:
 
 
 # =========================================================
-# FUNCTIONS
+# DATABASE FUNCTIONS
 # =========================================================
 
-def load_data():
+def load_data(current_user_id):
+
+    query = text("""
+        SELECT
+            id,
+            user_id,
+            title,
+            category,
+            genre,
+            rating,
+            watched_date,
+            review,
+            created_at
+
+        FROM media
+
+        WHERE user_id = :user_id
+
+        ORDER BY watched_date DESC,
+                 id DESC
+    """)
 
     return pd.read_sql(
-        "SELECT * FROM media",
-        engine
+        query,
+        engine,
+        params={
+            "user_id": current_user_id
+        }
     )
 
 
 # ---------------------------------------------------------
-# STAR RATING
+# ADD ENTRY
 # ---------------------------------------------------------
+
+def add_entry(
+    current_user_id,
+    title,
+    category,
+    genre,
+    rating,
+    watched_date,
+    review
+):
+
+    with engine.begin() as conn:
+
+        conn.execute(
+            text("""
+                INSERT INTO media (
+                    user_id,
+                    title,
+                    category,
+                    genre,
+                    rating,
+                    watched_date,
+                    review
+                )
+
+                VALUES (
+                    :user_id,
+                    :title,
+                    :category,
+                    :genre,
+                    :rating,
+                    :watched_date,
+                    :review
+                )
+            """),
+
+            {
+                "user_id":
+                    current_user_id,
+
+                "title":
+                    title,
+
+                "category":
+                    category,
+
+                "genre":
+                    genre,
+
+                "rating":
+                    rating,
+
+                "watched_date":
+                    watched_date,
+
+                "review":
+                    review
+            }
+        )
+
+
+# ---------------------------------------------------------
+# UPDATE ENTRY
+# ---------------------------------------------------------
+
+def update_entry(
+    current_user_id,
+    entry_id,
+    title,
+    rating,
+    category,
+    genre,
+    review
+):
+
+    with engine.begin() as conn:
+
+        conn.execute(
+            text("""
+                UPDATE media
+
+                SET
+                    title = :title,
+                    rating = :rating,
+                    category = :category,
+                    genre = :genre,
+                    review = :review
+
+                WHERE id = :id
+                AND user_id = :user_id
+            """),
+
+            {
+                "title":
+                    title,
+
+                "rating":
+                    rating,
+
+                "category":
+                    category,
+
+                "genre":
+                    genre,
+
+                "review":
+                    review,
+
+                "id":
+                    entry_id,
+
+                "user_id":
+                    current_user_id
+            }
+        )
+
+
+# ---------------------------------------------------------
+# DELETE ENTRY
+# ---------------------------------------------------------
+
+def delete_entry(
+    current_user_id,
+    entry_id
+):
+
+    with engine.begin() as conn:
+
+        conn.execute(
+            text("""
+                DELETE FROM media
+
+                WHERE id = :id
+                AND user_id = :user_id
+            """),
+
+            {
+                "id":
+                    entry_id,
+
+                "user_id":
+                    current_user_id
+            }
+        )
+
+
+# =========================================================
+# STAR RATING
+# =========================================================
 
 def star_rating_picker():
 
@@ -294,7 +514,6 @@ def star_rating_picker():
         st.session_state.add_rating = 5
 
 
-    # Show current rating
     st.markdown(
         f"""
         <div style="
@@ -340,9 +559,9 @@ def star_rating_picker():
     return st.session_state.add_rating
 
 
-# ---------------------------------------------------------
+# =========================================================
 # BADGES
-# ---------------------------------------------------------
+# =========================================================
 
 def get_badges(df):
 
@@ -383,10 +602,52 @@ def get_badges(df):
 
 
 # =========================================================
-# LOAD DATA
+# LOAD THIS USER'S DATA
 # =========================================================
 
-df = load_data()
+df = load_data(
+    user_id
+)
+
+
+# =========================================================
+# SIDEBAR — ACCOUNT
+# =========================================================
+
+with st.sidebar:
+
+    st.subheader(
+        "👤 Account"
+    )
+
+
+    st.write(
+        f"**{user_name}**"
+    )
+
+
+    if user_email:
+
+        st.caption(
+            user_email
+        )
+
+
+    if st.button(
+        "Log out",
+        key="logout_button",
+        use_container_width=True
+    ):
+
+        # Clear UI state before logging out.
+        st.session_state.selected_id = None
+        st.session_state.editing_id = None
+        st.session_state.add_rating = 5
+
+        st.logout()
+
+
+    st.divider()
 
 
 # =========================================================
@@ -554,50 +815,21 @@ with st.sidebar:
 
         else:
 
-            with engine.begin() as conn:
+            add_entry(
+                current_user_id=user_id,
 
-                conn.execute(
+                title=title.strip(),
 
-                    text("""
-                        INSERT INTO media (
-                            title,
-                            category,
-                            genre,
-                            rating,
-                            watched_date,
-                            review
-                        )
+                category=category,
 
-                        VALUES (
-                            :title,
-                            :category,
-                            :genre,
-                            :rating,
-                            :watched_date,
-                            :review
-                        )
-                    """),
+                genre=genre,
 
-                    {
-                        "title":
-                            title.strip(),
+                rating=int(rating),
 
-                        "category":
-                            category,
+                watched_date=watched_date,
 
-                        "genre":
-                            genre,
-
-                        "rating":
-                            int(rating),
-
-                        "watched_date":
-                            str(watched_date),
-
-                        "review":
-                            review.strip()
-                    }
-                )
+                review=review.strip()
+            )
 
 
             st.session_state.add_rating = 5
@@ -612,8 +844,12 @@ with st.sidebar:
 
 if df.empty:
 
+    st.header(
+        "Your Library"
+    )
+
     st.info(
-        "Add your first entry 🎬"
+        "Your library is empty. Add your first entry 🎬"
     )
 
     st.stop()
@@ -802,6 +1038,7 @@ editing_id = (
 if editing_id is not None:
 
 
+    # df already contains only this user's records.
     selected = df[
         df["id"]
         == editing_id
@@ -969,44 +1206,23 @@ if editing_id is not None:
 
                 else:
 
-                    with engine.begin() as conn:
+                    update_entry(
+                        current_user_id=user_id,
 
+                        entry_id=editing_id,
 
-                        conn.execute(
+                        title=new_title.strip(),
 
-                            text("""
-                                UPDATE media
+                        rating=int(
+                            new_rating
+                        ),
 
-                                SET
-                                    title = :title,
-                                    rating = :rating,
-                                    category = :category,
-                                    genre = :genre,
-                                    review = :review
+                        category=new_category,
 
-                                WHERE id = :id
-                            """),
+                        genre=new_genre,
 
-                            {
-                                "title":
-                                    new_title.strip(),
-
-                                "rating":
-                                    int(new_rating),
-
-                                "category":
-                                    new_category,
-
-                                "genre":
-                                    new_genre,
-
-                                "review":
-                                    new_review.strip(),
-
-                                "id":
-                                    editing_id
-                            }
-                        )
+                        review=new_review.strip()
+                    )
 
 
                     st.session_state.editing_id = None
@@ -1029,6 +1245,13 @@ if editing_id is not None:
                 st.session_state.editing_id = None
 
                 st.rerun()
+
+
+    else:
+
+        # If the ID is invalid or doesn't belong to this user,
+        # close the editor.
+        st.session_state.editing_id = None
 
 
 # =========================================================
@@ -1173,12 +1396,6 @@ else:
                         ></div>
 
                         <style>
-
-                        /*
-                        Color the Streamlit button
-                        immediately following this
-                        genre marker.
-                        */
 
                         .element-container:has(
                             .genre-{entry_id}
@@ -1376,21 +1593,10 @@ else:
                             ):
 
 
-                                with engine.begin() as conn:
-
-
-                                    conn.execute(
-
-                                        text("""
-                                            DELETE FROM media
-                                            WHERE id = :id
-                                        """),
-
-                                        {
-                                            "id":
-                                                entry_id
-                                        }
-                                    )
+                                delete_entry(
+                                    current_user_id=user_id,
+                                    entry_id=entry_id
+                                )
 
 
                                 st.session_state.selected_id = None
@@ -1511,5 +1717,4 @@ with stat4:
         "Best Genre",
         best_genre
     )
-
-
+```
