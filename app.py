@@ -17,45 +17,25 @@ st.set_page_config(
 # =========================================================
 # AUTHENTICATION
 # =========================================================
-# Authentication is configured in .streamlit/secrets.toml
-# locally and in Streamlit Community Cloud Secrets.
-#
-# We use the OIDC "sub" claim as the permanent user ID.
-# Do NOT use the user's display name as the database owner.
 
 if not st.user.is_logged_in:
 
     st.title("🎥 Watched Library")
 
     st.write(
-        "Sign in to access your personal watched library."
+        "Sign in with Google to access your personal library."
     )
 
-    if st.button(
-        "Continue with Google",
-        use_container_width=False
-    ):
+    if st.button("Continue with Google"):
         st.login("google")
 
     st.stop()
 
 
-# Unique ID supplied by the identity provider
 user_id = str(st.user.sub)
 
-# Display information only
-user_name = getattr(
-    st.user,
-    "name",
-    "User"
-)
-
-user_email = getattr(
-    st.user,
-    "email",
-    ""
-)
-
+user_name = getattr(st.user, "name", "User")
+user_email = getattr(st.user, "email", "")
 
 # =========================================================
 # GENRE COLORS
