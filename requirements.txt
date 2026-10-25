@@ -5,4 +5,5 @@ plotly
 SQLAlchemy
 psycopg2-binary
 Authlib>=1.3.2
+httpx
 openpyxl
