@@ -741,7 +741,24 @@ if badges:
     )
 
 else:
-    st.markdown("No badges yet — start adding entries!")
+
+        st.markdown(
+            """
+            <span style="
+                background: #55555D;
+                color: white;
+                padding: 6px 10px;
+                border-radius: 20px;
+                display: inline-block;
+                font-size: 13px;
+            ">
+                No badges yet —
+                start adding entries!
+            </span>
+            """,
+
+            unsafe_allow_html=True
+        )
 
 # =========================================================
 # SIDEBAR — ADD ENTRY
