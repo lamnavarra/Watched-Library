@@ -1399,9 +1399,7 @@ else:
                         <div class="genre-marker genre-{entry_id}"></div>
 
                         <style>
-                        .element-container:has(
-                            .genre-{entry_id}
-                        )
+                        .element-container:has(.genre-{entry_id})
                         + .element-container button {{
                             background-color: {genre_color} !important;
                             border-color: {genre_color} !important;
@@ -1410,9 +1408,7 @@ else:
                             transition: 0.2s;
                         }}
 
-                        .element-container:has(
-                            .genre-{entry_id}
-                        )
+                        .element-container:has(.genre-{entry_id})
                         + .element-container button:hover {{
                             filter: brightness(1.15);
                             color: white !important;
@@ -1421,8 +1417,6 @@ else:
                         """,
                         unsafe_allow_html=True
                     )
-
-
 
                     # =====================================
                     # TITLE BUTTON
