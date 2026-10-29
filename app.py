@@ -1390,66 +1390,38 @@ else:
 
                     entry_id = row["id"]
 
-
                     # =====================================
                     # INVISIBLE MARKER
                     # =====================================
 
                     st.markdown(
-    f"""
-    <div
-        class="genre-marker genre-{entry_id}"
-    >
-    """
-                        ></div>
+                        f"""
+                        <div class="genre-marker genre-{entry_id}"></div>
 
                         <style>
+                        .element-container:has(
+                            .genre-{entry_id}
+                        )
+                        + .element-container button {{
+                            background-color: {genre_color} !important;
+                            border-color: {genre_color} !important;
+                            color: white !important;
+                            font-weight: 600;
+                            transition: 0.2s;
+                        }}
 
                         .element-container:has(
                             .genre-{entry_id}
                         )
-                        + .element-container
-                        button {{
-
-                            background-color:
-                                {genre_color}
-                                !important;
-
-                            border-color:
-                                {genre_color}
-                                !important;
-
-                            color:
-                                white
-                                !important;
-
-                            font-weight:
-                                600;
-
-                            transition:
-                                0.2s;
+                        + .element-container button:hover {{
+                            filter: brightness(1.15);
+                            color: white !important;
                         }}
-
-
-                        .element-container:has(
-                            .genre-{entry_id}
-                        )
-                        + .element-container
-                        button:hover {{
-
-                            filter:
-                                brightness(1.15);
-
-                            color:
-                                white
-                                !important;
-                        }}
-
                         </style>
                         """,
-
                         unsafe_allow_html=True
                     )
+
 
 
                     # =====================================
