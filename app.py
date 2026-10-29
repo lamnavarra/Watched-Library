@@ -538,46 +538,113 @@ def star_rating_picker():
     return st.session_state.add_rating
 
 
-# =========================================================
-# BADGES
-# =========================================================
-
 def get_badges(df):
 
     badges = []
-
     count = len(df)
 
-
+    # Overall collection milestones: count all entries
     if count >= 1:
+        badges.append("🎬 First Entry")
 
-        badges.append(
-            "🎬 First Entry"
-        )
-
-
-    if count >= 10:
-
-        badges.append(
-            "🍿 Movie Lover"
-        )
-
+    if count >= 5:
+        badges.append("🌱 Getting Started")
 
     if count >= 25:
-
-        badges.append(
-            "🏆 Collector"
-        )
-
+        badges.append("🏆 Collector")
 
     if count >= 50:
+        badges.append("🔥 Power User")
 
-        badges.append(
-            "🔥 Power User"
-        )
+    if count >= 100:
+        badges.append("💎 Ultimate Collector")
 
+    if count >= 250:
+        badges.append("👑 Library Legend")
+
+    # Rating achievements
+    ratings = pd.to_numeric(df.get("rating"), errors="coerce")
+    if ratings.notna().any() and (ratings >= 5).any():
+        badges.append("⭐ Five-Star Favourite")
+
+    if ratings.notna().any() and (ratings >= 4).sum() >= 10:
+        badges.append("🌟 Quality Seeker")
+
+    # Genre exploration achievements
+    genres = df["genre"].dropna() if "genre" in df.columns else pd.Series(dtype=str)
+    unique_genres = genres.nunique()
+
+    if unique_genres >= 3:
+        badges.append("🧭 Genre Explorer")
+
+    if unique_genres >= 6:
+        badges.append("🌈 Genre Adventurer")
+
+    # Category-specific achievements: thresholds count entries in that category only
+    categories = (
+        df["category"].fillna("").astype(str).str.strip().str.lower()
+        if "category" in df.columns
+        else pd.Series(dtype=str)
+    )
+
+    category_badges = {
+        "movie": [
+            (1, "🎞️ Movie Starter"),
+            (10, "🍿 Movie Lover"),
+            (25, "🎥 Movie Buff"),
+            (50, "🎬 Cinema Legend"),
+        ],
+        "anime": [
+            (1, "🌸 Anime Starter"),
+            (10, "⛩️ Anime Fan"),
+            (25, "⚔️ Anime Expert"),
+            (50, "👑 Anime Legend"),
+        ],
+        "manga": [
+            (1, "📖 Manga Starter"),
+            (10, "📚 Manga Reader"),
+            (25, "🖋️ Manga Collector"),
+            (50, "🏯 Manga Legend"),
+        ],
+        "manhwa": [
+            (1, "🪷 Manhwa Starter"),
+            (10, "🖋️ Manhwa Enthusiast"),
+            (25, "📚 Manhwa Collector"),
+            (50, "👑 Manhwa Legend"),
+        ],
+        "show": [
+            (1, "📺 Show Starter"),
+            (10, "🍿 Show Watcher"),
+            (25, "📺 Show Enthusiast"),
+            (50, "🌟 Show Legend"),
+        ],
+        "series": [
+            (1, "📺 Series Starter"),
+            (10, "📺 Series Binger"),
+            (25, "🎭 Series Enthusiast"),
+            (50, "🏆 Series Legend"),
+        ],
+    }
+
+    for category, milestones in category_badges.items():
+        category_count = (categories == category).sum()
+        for threshold, badge in milestones:
+            if category_count >= threshold:
+                badges.append(badge)
+
+    # Review achievements: count entries with a non-empty review
+    if "review" in df.columns:
+        reviews = df["review"].fillna("").astype(str).str.strip()
+        review_count = (reviews != "").sum()
+
+        if review_count >= 5:
+            badges.append("✍️ Thoughtful Reviewer")
+
+        if review_count >= 20:
+            badges.append("📝 Review Master")
 
     return badges
+
 
 
 # =========================================================
@@ -1586,10 +1653,6 @@ else:
                                 st.rerun()
 
 
-# =========================================================
-# STATS
-# =========================================================
-
 st.subheader(
     "📊 Stats"
 )
@@ -1696,4 +1759,3 @@ with stat4:
         "Best Genre",
         best_genre
     )
-
