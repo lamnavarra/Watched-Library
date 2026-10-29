@@ -1396,12 +1396,11 @@ else:
                     # =====================================
 
                     st.markdown(
-                        f"""
-                        <div
-                            class="
-                                genre-marker
-                                genre-{entry_id}
-                            "
+    f"""
+    <div
+        class="genre-marker genre-{entry_id}"
+    >
+    """
                         ></div>
 
                         <style>
