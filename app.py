@@ -700,74 +700,48 @@ with st.sidebar:
 # HEADER + BADGES
 # =========================================================
 
-header_col, badge_col = st.columns(2)
+st.title("Watched Library 🎥🎟️🍿")
 
+st.subheader("🏅 Your Badges")
 
-with header_col:
+badges = get_badges(df)
 
-    st.title(
-        "Watched Library 🎥🎟️🍿"
+if badges:
+    badge_html = """
+    <div style="
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+    ">
+    """
+
+    for badge in badges:
+        badge_html += f"""
+        <span style="
+            background: #55555D;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+            font-size: 13px;
+        ">
+            {badge}
+        </span>
+        """
+
+    badge_html += "</div>"
+
+    st.markdown(
+        badge_html,
+        unsafe_allow_html=True
     )
 
-
-with badge_col:
-
-    st.subheader(
-        "🏅 Your Badges"
-    )
-
-
-    badges = get_badges(df)
-
-
-    if badges:
-
-        badge_html = "".join(
-
-            f"""
-            <span style="
-                background: #55555D;
-                color: white;
-                padding: 6px 10px;
-                border-radius: 20px;
-                margin: 4px;
-                display: inline-block;
-                font-size: 13px;
-            ">
-                {badge}
-            </span>
-            """
-
-            for badge in badges
-        )
-
-
-        st.markdown(
-            badge_html,
-            unsafe_allow_html=True
-        )
-
-
-    else:
-
-        st.markdown(
-            """
-            <span style="
-                background: #55555D;
-                color: white;
-                padding: 6px 10px;
-                border-radius: 20px;
-                display: inline-block;
-                font-size: 13px;
-            ">
-                No badges yet —
-                start adding entries!
-            </span>
-            """,
-
-            unsafe_allow_html=True
-        )
-
+else:
+    st.markdown("No badges yet — start adding entries!")
 
 # =========================================================
 # SIDEBAR — ADD ENTRY
