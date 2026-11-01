@@ -1061,228 +1061,134 @@ if search.strip():
 # EDIT ENTRY
 # =========================================================
 
-editing_id = (
-    st.session_state.editing_id
-)
-
+editing_id = st.session_state.editing_id
 
 if editing_id is not None:
 
-
-    # df already contains only this user's records.
-    selected = df[
-        df["id"]
-        == editing_id
-    ]
-
+    selected = df[df["id"] == editing_id]
 
     if not selected.empty:
 
-
         entry = selected.iloc[0]
 
+        st.subheader("✏️ Edit Entry")
 
-        st.subheader(
-            "✏️ Edit Entry"
+        # Safely load existing values
+        current_title = str(entry["title"])
+
+        current_rating = (
+            int(entry["rating"])
+            if pd.notna(entry["rating"])
+            else 5
         )
-
-
-        new_title = st.text_input(
-
-            "Title",
-
-            value=str(
-                entry["title"]
-            ),
-
-            key="edit_title"
-        )
-
-
-        new_rating = st.number_input(
-
-            "Rating",
-
-            min_value=1,
-
-            max_value=5,
-
-            value=int(
-                entry["rating"]
-            ),
-
-            key="edit_rating"
-        )
-
 
         categories = [
-
-            "Movie",
-            "Anime",
-            "Manga",
-            "Show",
-            "Series"
+            "Movie", "Anime", "Manga", "Show", "Series"
         ]
-
-
-        current_category = (
-            entry["category"]
-        )
-
-
-        if current_category not in categories:
-
-            current_category = "Movie"
-
-
-        new_category = st.selectbox(
-
-            "Category",
-
-            categories,
-
-            index=categories.index(
-                current_category
-            ),
-
-            key="edit_category"
-        )
-
 
         genres = [
-
-            "Action",
-            "Adventure",
-            "Comedy",
-            "Drama",
-            "Fantasy",
-            "Horror",
-            "Mystery",
-            "Romance",
-            "Sci-Fi",
-            "Thriller",
-            "Other"
+            "Action", "Adventure", "Comedy", "Drama",
+            "Fantasy", "Horror", "Mystery", "Romance",
+            "Sci-Fi", "Thriller", "Other"
         ]
 
+        current_category = entry["category"]
+        if pd.isna(current_category) or current_category not in categories:
+            current_category = "Movie"
 
-        current_genre = (
-            entry["genre"]
-        )
-
-
-        if current_genre not in genres:
-
+        current_genre = entry["genre"]
+        if pd.isna(current_genre) or current_genre not in genres:
             current_genre = "Other"
 
-
-        new_genre = st.selectbox(
-
-            "Genre",
-
-            genres,
-
-            index=genres.index(
-                current_genre
-            ),
-
-            key="edit_genre"
-        )
-
-
-        current_review = (
-            entry["review"]
-        )
-
-
-        if pd.isna(
-            current_review
-        ):
-
+        current_review = entry["review"]
+        if pd.isna(current_review):
             current_review = ""
 
+        # Unique widget keys for each entry
+        with st.form(key=f"edit_form_{editing_id}"):
 
-        new_review = st.text_area(
+            new_title = st.text_input(
+                "Title",
+                value=current_title,
+                key=f"edit_title_{editing_id}"
+            )
 
-            "Review",
+            new_rating = st.number_input(
+                "Rating",
+                min_value=1,
+                max_value=5,
+                value=current_rating,
+                key=f"edit_rating_{editing_id}"
+            )
 
-            value=str(
-                current_review
-            ),
+            new_category = st.selectbox(
+                "Category",
+                categories,
+                index=categories.index(current_category),
+                key=f"edit_category_{editing_id}"
+            )
 
-            key="edit_review"
-        )
+            new_genre = st.selectbox(
+                "Genre",
+                genres,
+                index=genres.index(current_genre),
+                key=f"edit_genre_{editing_id}"
+            )
 
+            new_review = st.text_area(
+                "Review",
+                value=str(current_review),
+                key=f"edit_review_{editing_id}"
+            )
 
-        save_col, cancel_col = (
-            st.columns(2)
-        )
-
-
-        # SAVE
-        with save_col:
-
-
-            if st.button(
+            save = st.form_submit_button(
                 "💾 Save Changes",
                 use_container_width=True
-            ):
+            )
 
+        cancel = st.button(
+            "❌ Cancel",
+            use_container_width=True,
+            key=f"cancel_edit_{editing_id}"
+        )
 
-                if not new_title.strip():
+        if save:
 
-                    st.warning(
-                        "Title cannot be empty."
-                    )
+            if not new_title.strip():
 
+                st.warning("Title cannot be empty.")
 
-                else:
+            else:
 
-                    update_entry(
-                        current_user_id=user_id,
-
-                        entry_id=editing_id,
-
-                        title=new_title.strip(),
-
-                        rating=int(
-                            new_rating
-                        ),
-
-                        category=new_category,
-
-                        genre=new_genre,
-
-                        review=new_review.strip()
-                    )
-
-
-                    st.session_state.editing_id = None
-
-                    st.session_state.selected_id = None
-
-
-                    st.rerun()
-
-
-        # CANCEL
-        with cancel_col:
-
-
-            if st.button(
-                "❌ Cancel",
-                use_container_width=True
-            ):
+                update_entry(
+                    current_user_id=user_id,
+                    entry_id=editing_id,
+                    title=new_title.strip(),
+                    rating=int(new_rating),
+                    category=new_category,
+                    genre=new_genre,
+                    review=new_review.strip()
+                )
 
                 st.session_state.editing_id = None
+                st.session_state.selected_id = None
+
+                st.success("Entry updated successfully!")
 
                 st.rerun()
 
+        if cancel:
+
+            st.session_state.editing_id = None
+            st.session_state.selected_id = None
+
+            st.rerun()
 
     else:
 
-        # If the ID is invalid or doesn't belong to this user,
-        # close the editor.
         st.session_state.editing_id = None
+        st.session_state.selected_id = None
+        st.rerun()
 
 
 # =========================================================
