@@ -1058,140 +1058,6 @@ if search.strip():
 
 
 # =========================================================
-# EDIT ENTRY
-# =========================================================
-
-editing_id = st.session_state.editing_id
-
-if editing_id is not None:
-
-    selected = df[df["id"] == editing_id]
-
-    if not selected.empty:
-
-        entry = selected.iloc[0]
-
-        st.subheader("✏️ Edit Entry")
-
-        # Safely load existing values
-        current_title = str(entry["title"])
-
-        current_rating = (
-            int(entry["rating"])
-            if pd.notna(entry["rating"])
-            else 5
-        )
-
-        categories = [
-            "Movie", "Anime", "Manga", "Show", "Series"
-        ]
-
-        genres = [
-            "Action", "Adventure", "Comedy", "Drama",
-            "Fantasy", "Horror", "Mystery", "Romance",
-            "Sci-Fi", "Thriller", "Other"
-        ]
-
-        current_category = entry["category"]
-        if pd.isna(current_category) or current_category not in categories:
-            current_category = "Movie"
-
-        current_genre = entry["genre"]
-        if pd.isna(current_genre) or current_genre not in genres:
-            current_genre = "Other"
-
-        current_review = entry["review"]
-        if pd.isna(current_review):
-            current_review = ""
-
-        # Unique widget keys for each entry
-        with st.form(key=f"edit_form_{editing_id}"):
-
-            new_title = st.text_input(
-                "Title",
-                value=current_title,
-                key=f"edit_title_{editing_id}"
-            )
-
-            new_rating = st.number_input(
-                "Rating",
-                min_value=1,
-                max_value=5,
-                value=current_rating,
-                key=f"edit_rating_{editing_id}"
-            )
-
-            new_category = st.selectbox(
-                "Category",
-                categories,
-                index=categories.index(current_category),
-                key=f"edit_category_{editing_id}"
-            )
-
-            new_genre = st.selectbox(
-                "Genre",
-                genres,
-                index=genres.index(current_genre),
-                key=f"edit_genre_{editing_id}"
-            )
-
-            new_review = st.text_area(
-                "Review",
-                value=str(current_review),
-                key=f"edit_review_{editing_id}"
-            )
-
-            save = st.form_submit_button(
-                "💾 Save Changes",
-                use_container_width=True
-            )
-
-        cancel = st.button(
-            "❌ Cancel",
-            use_container_width=True,
-            key=f"cancel_edit_{editing_id}"
-        )
-
-        if save:
-
-            if not new_title.strip():
-
-                st.warning("Title cannot be empty.")
-
-            else:
-
-                update_entry(
-                    current_user_id=user_id,
-                    entry_id=editing_id,
-                    title=new_title.strip(),
-                    rating=int(new_rating),
-                    category=new_category,
-                    genre=new_genre,
-                    review=new_review.strip()
-                )
-
-                st.session_state.editing_id = None
-                st.session_state.selected_id = None
-
-                st.success("Entry updated successfully!")
-
-                st.rerun()
-
-        if cancel:
-
-            st.session_state.editing_id = None
-            st.session_state.selected_id = None
-
-            st.rerun()
-
-    else:
-
-        st.session_state.editing_id = None
-        st.session_state.selected_id = None
-        st.rerun()
-
-
-# =========================================================
 # LIBRARY
 # =========================================================
 
@@ -1424,89 +1290,151 @@ else:
                     # SELECTED ENTRY
                     # =====================================
 
-                    if (
-                        st.session_state.selected_id
-                        == entry_id
-                    ):
+                    if st.session_state.selected_id == entry_id:
 
+                        # =================================
+                        # INLINE EDIT MODE
+                        # =================================
 
-                        review_text = row.get(
-                            "review",
-                            ""
-                        )
+                        if st.session_state.editing_id == entry_id:
 
+                            st.markdown("### ✏️ Edit Entry")
 
-                        if (
-                            review_text
-                            and not pd.isna(
-                                review_text
-                            )
-                        ):
+                            categories = [
+                                "Movie", "Anime", "Manga", "Show", "Series"
+                            ]
 
-                            st.write(
-                                f"📝 {review_text}"
-                            )
+                            genres = [
+                                "Action", "Adventure", "Comedy", "Drama",
+                                "Fantasy", "Horror", "Mystery", "Romance",
+                                "Sci-Fi", "Thriller", "Other"
+                            ]
 
+                            current_category = row["category"]
+                            if pd.isna(current_category) or current_category not in categories:
+                                current_category = "Movie"
 
-                        edit_col, delete_col = (
-                            st.columns(2)
-                        )
+                            current_genre = row["genre"]
+                            if pd.isna(current_genre) or current_genre not in genres:
+                                current_genre = "Other"
 
+                            current_review = row["review"]
+                            if pd.isna(current_review):
+                                current_review = ""
 
-                        # -----------------------------
-                        # EDIT
-                        # -----------------------------
+                            with st.form(key=f"edit_form_{entry_id}"):
 
-                        with edit_col:
-
-
-                            if st.button(
-
-                                "✏️ Edit",
-
-                                key=
-                                    f"edit_{entry_id}",
-
-                                use_container_width=True
-                            ):
-
-
-                                st.session_state.editing_id = entry_id
-
-
-                                st.rerun()
-
-
-                        # -----------------------------
-                        # DELETE
-                        # -----------------------------
-
-                        with delete_col:
-
-
-                            if st.button(
-
-                                "🗑️ Delete",
-
-                                key=
-                                    f"delete_{entry_id}",
-
-                                use_container_width=True
-                            ):
-
-
-                                delete_entry(
-                                    current_user_id=user_id,
-                                    entry_id=entry_id
+                                new_title = st.text_input(
+                                    "Title",
+                                    value=str(row["title"]),
+                                    key=f"edit_title_{entry_id}"
                                 )
 
+                                new_rating = st.number_input(
+                                    "Rating",
+                                    min_value=1,
+                                    max_value=5,
+                                    value=int(row["rating"]) if pd.notna(row["rating"]) else 5,
+                                    key=f"edit_rating_{entry_id}"
+                                )
 
-                                st.session_state.selected_id = None
+                                new_category = st.selectbox(
+                                    "Category",
+                                    categories,
+                                    index=categories.index(current_category),
+                                    key=f"edit_category_{entry_id}"
+                                )
 
+                                new_genre = st.selectbox(
+                                    "Genre",
+                                    genres,
+                                    index=genres.index(current_genre),
+                                    key=f"edit_genre_{entry_id}"
+                                )
+
+                                new_review = st.text_area(
+                                    "Review",
+                                    value=str(current_review),
+                                    key=f"edit_review_{entry_id}"
+                                )
+
+                                # Cancel on the LEFT, Save on the RIGHT
+                                cancel_col, save_col = st.columns(2)
+
+                                with cancel_col:
+                                    cancel = st.form_submit_button(
+                                        "❌ Cancel",
+                                        use_container_width=True
+                                    )
+
+                                with save_col:
+                                    save = st.form_submit_button(
+                                        "💾 Save Changes",
+                                        use_container_width=True
+                                    )
+
+                            # Handle form submissions outside the form
+                            if cancel:
                                 st.session_state.editing_id = None
-
-
                                 st.rerun()
+
+                            if save:
+                                if not new_title.strip():
+                                    st.warning("Title cannot be empty.")
+                                else:
+                                    update_entry(
+                                        current_user_id=user_id,
+                                        entry_id=int(entry_id),
+                                        title=new_title.strip(),
+                                        rating=int(new_rating),
+                                        category=new_category,
+                                        genre=new_genre,
+                                        review=new_review.strip()
+                                    )
+
+                                    # Keep this entry expanded after saving
+                                    st.session_state.editing_id = None
+                                    st.success("Entry updated successfully!")
+                                    st.rerun()
+
+                        # =================================
+                        # NORMAL EXPANDED MODE
+                        # =================================
+
+                        else:
+
+                            review_text = row.get("review", "")
+
+                            if review_text and not pd.isna(review_text):
+                                st.write(f"📝 {review_text}")
+
+                            edit_col, delete_col = st.columns(2)
+
+                            # EDIT
+                            with edit_col:
+                                if st.button(
+                                    "✏️ Edit",
+                                    key=f"edit_{entry_id}",
+                                    use_container_width=True
+                                ):
+                                    st.session_state.editing_id = int(entry_id)
+                                    st.rerun()
+
+                            # DELETE
+                            with delete_col:
+                                if st.button(
+                                    "🗑️ Delete",
+                                    key=f"delete_{entry_id}",
+                                    use_container_width=True
+                                ):
+                                    delete_entry(
+                                        current_user_id=user_id,
+                                        entry_id=int(entry_id)
+                                    )
+
+                                    st.session_state.selected_id = None
+                                    st.session_state.editing_id = None
+                                    st.rerun()
 
 
 st.subheader(
